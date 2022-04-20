@@ -11,14 +11,15 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "hardhat/console.sol";
 
 contract Presale is FarmState, Ownable {
-    FarmToken private farmToken;
-    address private farmWallet;
-    address private devWallet;
-    uint16 private dex;
+    FarmToken public farmToken;
+    address public farmWallet;
+    address public devWallet;
+    address public safe;
+    uint16 public dex;
     uint256 private farmTokenPriceInCents;
     uint16 private devPct = 10;
     uint16 private farmPct = 5;
-    PriceConverter private priceConverter;
+    PriceConverter public priceConverter;
 
     using SafeMath for uint256;
 
@@ -26,6 +27,7 @@ contract Presale is FarmState, Ownable {
         FarmToken _farmToken,
         address _farmWallet,
         address _devWallet,
+        address _safe,
         uint16 _dex,
         uint256 _farmTokenPriceInCents,
         PriceConverter _priceConverter
@@ -33,6 +35,7 @@ contract Presale is FarmState, Ownable {
         farmToken = _farmToken;
         farmWallet = _farmWallet;
         devWallet = _devWallet;
+        safe = _safe;
         farmTokenPriceInCents = _farmTokenPriceInCents;
         dex = _dex;
         priceConverter = _priceConverter;
@@ -49,7 +52,7 @@ contract Presale is FarmState, Ownable {
         console.log("amountOfTokens: %s", amountOfTokens);
         console.log("balance: %s", farmToken.balanceOf(address(this)));
 
-        ERC20(paymentToken).transferFrom(msg.sender, farmWallet, purchaseCost);
+        ERC20(paymentToken).transferFrom(msg.sender, safe, purchaseCost);
         farmToken.transfer(msg.sender, amountOfTokens);
 
         farmToken.mint(devWallet, amountOfTokens.mul(devPct).div(100));
@@ -88,6 +91,10 @@ contract Presale is FarmState, Ownable {
 
     function setDevWallet(address _devWallet) external onlyOwner {
         devWallet = _devWallet;
+    }
+
+    function setSafe(address _safe) external onlyOwner {
+        safe = _safe;
     }
 
     function setDex(uint16 _dex) external onlyOwner {
