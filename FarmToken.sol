@@ -8,9 +8,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 abstract contract FarmToken is ERC20, Ownable, ReentrancyGuard {
     event Mint(uint256 amount);
-    event Burn(uint256 amount);
 
-    FarmToken public presaleToken;
     uint256 public presaleExchangeDeadline;
     address public firstOwner;
 
@@ -25,31 +23,51 @@ abstract contract FarmToken is ERC20, Ownable, ReentrancyGuard {
 
     modifier onlyOwnerAndFirstOwner() {
         require(
-            owner() == msg.sender || owner() == firstOwner,
+            msg.sender == owner() || msg.sender == firstOwner,
             "You don't have the ownership."
         );
         _;
     }
 
-    function mint(address to, uint256 amount) external onlyOwner {
+    /**
+     * @dev Mints the token and transfers ownership.
+     *
+     * @param to address that recieves the mint and becomes the owner of this token
+     * @param amount the amount to mint
+     */
+    function mintWithOwnershipTransfer(address to, uint256 amount)
+        external
+        onlyOwner
+    {
+        mint(to, amount);
+        if (firstOwner == address(0)) {
+            // saves the reference to the very first owner
+            // before transferring ownership to the new owner
+            firstOwner = owner();
+        }
+        transferOwnership(to);
+    }
+
+    // mint to first buyer
+    function mint(address to, uint256 amount) public onlyOwner {
         _mint(to, amount);
         emit Mint(amount);
     }
 
-    function burn(address from, uint256 amount) external onlyOwner {
-        _burn(from, amount);
-        emit Burn(amount);
-    }
-
     /**
-    Exchanges the presale token until the specified deadline
+     * @dev Transfers this token to the sender for the exchangeFrom() token at the specified amount.
+     * (ie. the sender holding the token provided by exchangeFrom() will get this token transferred)
      */
-    function exchangePresaleToken(uint256 exchangeAmount)
+    function exchangeToken(uint256 exchangeAmount)
         external
         nonReentrant
         beforeDeadline
     {
-        ERC20(presaleToken).transferFrom(
+        require(
+            address(exchangeFrom()) != address(0),
+            "the token is not exchangeable."
+        );
+        ERC20(exchangeFrom()).transferFrom(
             msg.sender,
             address(this),
             exchangeAmount
@@ -57,8 +75,8 @@ abstract contract FarmToken is ERC20, Ownable, ReentrancyGuard {
         _transfer(owner(), msg.sender, exchangeAmount);
     }
 
-    function setPresaleToken(FarmToken token) external onlyOwner {
-        presaleToken = token;
+    function exchangeFrom() public view virtual returns (FarmToken) {
+        return FarmToken(address(0));
     }
 
     function setPresaleExchangeDeadline(uint256 deadline)
@@ -66,10 +84,5 @@ abstract contract FarmToken is ERC20, Ownable, ReentrancyGuard {
         onlyOwnerAndFirstOwner
     {
         presaleExchangeDeadline = deadline;
-    }
-
-    function transferOwnershipTo(address newOwner) external onlyOwner {
-        firstOwner = newOwner;
-        transferOwnership(newOwner);
     }
 }
